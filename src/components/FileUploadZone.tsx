@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Upload, FileText, CheckCircle2, X, Sparkles } from "lucide-react";
+import { Upload, FileText, CheckCircle2, X, Sparkles, Link, Send, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 interface FileUploadZoneProps {
   onFileUpload: (file: File) => void;
@@ -12,6 +13,9 @@ const FileUploadZone = ({ onFileUpload }: FileUploadZoneProps) => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [webhookUrl, setWebhookUrl] = useState("");
+  const [isSendingToWebhook, setIsSendingToWebhook] = useState(false);
+  const [webhookResponse, setWebhookResponse] = useState<string | null>(null);
 
   const acceptedTypes = [
     "application/pdf",
@@ -66,11 +70,78 @@ const FileUploadZone = ({ onFileUpload }: FileUploadZoneProps) => {
     }
   }, []);
 
+  const sendToWebhook = async () => {
+    if (!webhookUrl) {
+      toast.error("Please enter a webhook URL");
+      return;
+    }
+
+    if (!uploadedFile) {
+      toast.error("Please upload a file first");
+      return;
+    }
+
+    setIsSendingToWebhook(true);
+    setWebhookResponse(null);
+
+    try {
+      // Convert file to base64
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onload = () => {
+          const base64 = reader.result as string;
+          resolve(base64.split(",")[1]); // Remove data URL prefix
+        };
+        reader.onerror = reject;
+      });
+      reader.readAsDataURL(uploadedFile);
+      const base64Content = await base64Promise;
+
+      const response = await fetch(webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        mode: "no-cors",
+        body: JSON.stringify({
+          fileName: uploadedFile.name,
+          fileType: uploadedFile.type,
+          fileSize: uploadedFile.size,
+          fileContent: base64Content,
+          timestamp: new Date().toISOString(),
+          triggered_from: window.location.origin,
+        }),
+      });
+
+      // Since we're using no-cors, we won't get a proper response
+      toast.success("Request sent to webhook!", {
+        description: "Check your webhook's history to confirm it was received.",
+      });
+
+      setWebhookResponse(`
+        <div style="padding: 20px; text-align: center;">
+          <h3 style="color: #10b981;">✓ Webhook Triggered Successfully</h3>
+          <p>File: ${uploadedFile.name}</p>
+          <p>Size: ${formatFileSize(uploadedFile.size)}</p>
+          <p>Timestamp: ${new Date().toLocaleString()}</p>
+        </div>
+      `);
+    } catch (error) {
+      console.error("Error sending to webhook:", error);
+      toast.error("Failed to send to webhook", {
+        description: "Please check the URL and try again.",
+      });
+    } finally {
+      setIsSendingToWebhook(false);
+    }
+  };
+
   const resetUpload = () => {
     setUploadedFile(null);
     setUploadProgress(0);
     setIsUploading(false);
     setIsComplete(false);
+    setWebhookResponse(null);
   };
 
   const formatFileSize = (bytes: number) => {
@@ -88,6 +159,28 @@ const FileUploadZone = ({ onFileUpload }: FileUploadZoneProps) => {
       transition={{ duration: 0.6, delay: 0.3 }}
       className="w-full max-w-2xl mx-auto"
     >
+      {/* Webhook URL Input */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="mb-6"
+      >
+        <div className="glass-card rounded-xl p-4 relative overflow-hidden">
+          <div className="absolute inset-0 rounded-xl gradient-border" />
+          <div className="flex items-center gap-3">
+            <Link className="w-5 h-5 text-primary flex-shrink-0" />
+            <input
+              type="url"
+              value={webhookUrl}
+              onChange={(e) => setWebhookUrl(e.target.value)}
+              placeholder="Enter your webhook URL (e.g., n8n, Zapier)"
+              className="flex-1 bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground text-sm"
+            />
+          </div>
+        </div>
+      </motion.div>
+
       <AnimatePresence mode="wait">
         {!uploadedFile ? (
           <motion.label
@@ -184,7 +277,7 @@ const FileUploadZone = ({ onFileUpload }: FileUploadZoneProps) => {
             <div className="absolute inset-0 rounded-2xl gradient-border" />
 
             {/* Success particles */}
-            {isComplete && (
+            {isComplete && !webhookResponse && (
               <>
                 {[...Array(12)].map((_, i) => (
                   <motion.div
@@ -270,19 +363,75 @@ const FileUploadZone = ({ onFileUpload }: FileUploadZoneProps) => {
               </motion.div>
             )}
 
-            {isComplete && (
+            {isComplete && !webhookResponse && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
-                className="mt-6 text-center"
+                className="mt-6"
               >
-                <p className="text-primary font-medium">
+                <p className="text-primary font-medium text-center mb-4">
                   ✨ Resume uploaded successfully!
                 </p>
+                
+                {/* Send to Webhook Button */}
+                <motion.button
+                  onClick={sendToWebhook}
+                  disabled={isSendingToWebhook || !webhookUrl}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className={`
+                    w-full py-3 px-6 rounded-xl font-medium
+                    flex items-center justify-center gap-2
+                    transition-all duration-300
+                    ${webhookUrl 
+                      ? "bg-gradient-to-r from-primary to-secondary text-background hover:shadow-lg hover:shadow-primary/25" 
+                      : "bg-muted text-muted-foreground cursor-not-allowed"}
+                  `}
+                >
+                  {isSendingToWebhook ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Sending to Webhook...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-5 h-5" />
+                      Send to Webhook
+                    </>
+                  )}
+                </motion.button>
+
+                {!webhookUrl && (
+                  <p className="text-xs text-muted-foreground text-center mt-2">
+                    Enter a webhook URL above to enable sending
+                  </p>
+                )}
+
                 <button
                   onClick={resetUpload}
-                  className="mt-3 text-sm text-muted-foreground hover:text-foreground transition-colors underline underline-offset-4"
+                  className="w-full mt-3 text-sm text-muted-foreground hover:text-foreground transition-colors underline underline-offset-4"
+                >
+                  Upload another file
+                </button>
+              </motion.div>
+            )}
+
+            {/* Webhook Response Display */}
+            {webhookResponse && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="mt-6"
+              >
+                <div 
+                  className="rounded-xl bg-muted/50 p-4 overflow-auto max-h-64"
+                  dangerouslySetInnerHTML={{ __html: webhookResponse }}
+                />
+                <button
+                  onClick={resetUpload}
+                  className="w-full mt-4 text-sm text-muted-foreground hover:text-foreground transition-colors underline underline-offset-4"
                 >
                   Upload another file
                 </button>
