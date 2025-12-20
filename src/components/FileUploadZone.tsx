@@ -16,7 +16,7 @@ const FileUploadZone = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
-  const [webhookUrl] = useState("https://your-n8n-webhook-url.com");
+  const [webhookUrl] = useState("https://yeswanthvuddagiri.app.n8n.cloud/webhook-test/ats-resume");
   const [isSendingToWebhook, setIsSendingToWebhook] = useState(false);
   const [webhookResponse, setWebhookResponse] = useState<string | null>(null);
   const [formData, setFormData] = useState<FormData>({
