@@ -85,85 +85,55 @@ const FileUploadZone = () => {
 
   const isFormValid = formData.name && formData.email && formData.role && formData.skills;
 
-  const sendToWebhook = async () => {
+ const sendToWebhook = async () => {
+  if (!uploadedFile) {
+    toast.error("Please upload a file first");
+    return;
+  }
 
-    if (!uploadedFile) {
-      toast.error("Please upload a file first");
-      return;
-    }
+  if (!isFormValid) {
+    toast.error("Please fill in all form fields");
+    return;
+  }
 
-    if (!isFormValid) {
-      toast.error("Please fill in all form fields");
-      return;
-    }
+  setIsSendingToWebhook(true);
+  setWebhookResponse(null);
 
-    setIsSendingToWebhook(true);
-    setWebhookResponse(null);
+  try {
+    const formDataPayload = new FormData();
 
-    try {
-      // Convert file to base64
-      const reader = new FileReader();
-      const base64Promise = new Promise<string>((resolve, reject) => {
-        reader.onload = () => {
-          const base64 = reader.result as string;
-          resolve(base64.split(",")[1]); // Remove data URL prefix
-        };
-        reader.onerror = reject;
-      });
-      reader.readAsDataURL(uploadedFile);
-      const base64Content = await base64Promise;
+    // text fields
+    formDataPayload.append("name", formData.name);
+    formDataPayload.append("email", formData.email);
+    formDataPayload.append("role", formData.role);
+    formDataPayload.append("skills", formData.skills);
 
-      const response = await fetch(webhookUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        mode: "no-cors",
-        body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          role: formData.role,
-          skills: formData.skills,
-          resume: base64Content,
-          fileName: uploadedFile.name,
-          fileType: uploadedFile.type,
-          fileSize: uploadedFile.size,
-          timestamp: new Date().toISOString(),
-        }),
-      });
+    // 🔥 IMPORTANT: real file, not base64
+    formDataPayload.append("resume", uploadedFile);
 
-      // Since we're using no-cors, we won't get a proper response
-      toast.success("Request sent to webhook!", {
-        description: "Check your n8n workflow to see the ATS score results.",
-      });
+    await fetch(webhookUrl, {
+      method: "POST",
+      body: formDataPayload, // ❌ no headers, ❌ no no-cors
+    });
 
-      setWebhookResponse(`
-        <div style="padding: 20px; text-align: center;">
-          <h3 style="color: #10b981;">✓ ATS Check Submitted</h3>
-          <p><strong>Name:</strong> ${formData.name}</p>
-          <p><strong>Email:</strong> ${formData.email}</p>
-          <p><strong>Target Role:</strong> ${formData.role}</p>
-          <p><strong>File:</strong> ${uploadedFile.name}</p>
-          <p style="margin-top: 12px; color: #888;">Check your n8n workflow for results</p>
-        </div>
-      `);
-    } catch (error) {
-      console.error("Error sending to webhook:", error);
-      toast.error("Failed to send to webhook", {
-        description: "Please check the URL and try again.",
-      });
-    } finally {
-      setIsSendingToWebhook(false);
-    }
-  };
+    toast.success("Resume submitted for ATS check!");
 
-  const resetUpload = () => {
-    setUploadedFile(null);
-    setUploadProgress(0);
-    setIsUploading(false);
-    setIsComplete(false);
-    setWebhookResponse(null);
-  };
+    setWebhookResponse(`
+      <div style="padding: 20px; text-align: center;">
+        <h3 style="color: #10b981;">✓ Submitted Successfully</h3>
+        <p><strong>Name:</strong> ${formData.name}</p>
+        <p><strong>Email:</strong> ${formData.email}</p>
+        <p><strong>Role:</strong> ${formData.role}</p>
+        <p><strong>File:</strong> ${uploadedFile.name}</p>
+      </div>
+    `);
+  } catch (err) {
+    console.error(err);
+    toast.error("Failed to submit resume");
+  } finally {
+    setIsSendingToWebhook(false);
+  }
+};
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return "0 Bytes";
