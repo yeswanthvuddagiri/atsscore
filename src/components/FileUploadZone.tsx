@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Upload, FileText, CheckCircle2, X, Sparkles, Link, Send, Loader2 } from "lucide-react";
+import { Upload, FileText, CheckCircle2, X, Sparkles, Send, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface FormData {
@@ -16,7 +16,7 @@ const FileUploadZone = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
-  const [webhookUrl, setWebhookUrl] = useState("");
+  const [webhookUrl] = useState("https://your-n8n-webhook-url.com");
   const [isSendingToWebhook, setIsSendingToWebhook] = useState(false);
   const [webhookResponse, setWebhookResponse] = useState<string | null>(null);
   const [formData, setFormData] = useState<FormData>({
@@ -86,10 +86,6 @@ const FileUploadZone = () => {
   const isFormValid = formData.name && formData.email && formData.role && formData.skills;
 
   const sendToWebhook = async () => {
-    if (!webhookUrl) {
-      toast.error("Please enter a webhook URL");
-      return;
-    }
 
     if (!uploadedFile) {
       toast.error("Please upload a file first");
@@ -250,26 +246,6 @@ const FileUploadZone = () => {
         </div>
       </motion.div>
 
-      {/* Webhook URL Input */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-      >
-        <div className="glass-card rounded-xl p-4 relative overflow-hidden">
-          <div className="absolute inset-0 rounded-xl gradient-border" />
-          <div className="flex items-center gap-3 relative z-10">
-            <Link className="w-5 h-5 text-primary flex-shrink-0" />
-            <input
-              type="url"
-              value={webhookUrl}
-              onChange={(e) => setWebhookUrl(e.target.value)}
-              placeholder="Enter your n8n webhook URL"
-              className="flex-1 bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground text-sm"
-            />
-          </div>
-        </div>
-      </motion.div>
 
       {/* File Upload Zone */}
       <AnimatePresence mode="wait">
