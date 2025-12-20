@@ -2,15 +2,8 @@ import { motion } from "framer-motion";
 import { Sparkles, Zap, Shield } from "lucide-react";
 import FloatingOrbs from "@/components/FloatingOrbs";
 import FileUploadZone from "@/components/FileUploadZone";
-import { toast } from "sonner";
 
 const Index = () => {
-  const handleFileUpload = (file: File) => {
-    toast.success(`${file.name} uploaded successfully!`, {
-      description: "Your resume is ready for review.",
-    });
-  };
-
   const features = [
     { icon: Zap, text: "Instant Processing" },
     { icon: Shield, text: "Secure & Private" },
@@ -49,7 +42,7 @@ const Index = () => {
           >
             <Sparkles className="w-4 h-4 text-primary" />
             <span className="text-sm font-medium text-primary">
-              Next-Gen Resume Upload
+              ATS Resume Checker
             </span>
           </motion.div>
 
@@ -59,9 +52,9 @@ const Index = () => {
             transition={{ delay: 0.3 }}
             className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6"
           >
-            <span className="text-foreground">Upload Your</span>
+            <span className="text-foreground">ATS Resume</span>
             <br />
-            <span className="gradient-text">Resume</span>
+            <span className="gradient-text">Checker</span>
           </motion.h1>
 
           <motion.p
@@ -70,13 +63,12 @@ const Index = () => {
             transition={{ delay: 0.5 }}
             className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto"
           >
-            Drop your resume and let our AI-powered system help you stand out.
-            Fast, secure, and incredibly simple.
+            Check your resume's ATS compatibility. Get instant feedback and improve your chances of getting noticed.
           </motion.p>
         </motion.div>
 
         {/* Upload Zone */}
-        <FileUploadZone onFileUpload={handleFileUpload} />
+        <FileUploadZone />
 
         {/* Features */}
         <motion.div
