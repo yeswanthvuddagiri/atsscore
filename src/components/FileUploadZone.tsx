@@ -3,11 +3,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Upload, FileText, CheckCircle2, X, Sparkles, Link, Send, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-interface FileUploadZoneProps {
-  onFileUpload: (file: File) => void;
+interface FormData {
+  name: string;
+  email: string;
+  role: string;
+  skills: string;
 }
 
-const FileUploadZone = ({ onFileUpload }: FileUploadZoneProps) => {
+const FileUploadZone = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -16,12 +19,23 @@ const FileUploadZone = ({ onFileUpload }: FileUploadZoneProps) => {
   const [webhookUrl, setWebhookUrl] = useState("");
   const [isSendingToWebhook, setIsSendingToWebhook] = useState(false);
   const [webhookResponse, setWebhookResponse] = useState<string | null>(null);
+  const [formData, setFormData] = useState<FormData>({
+    name: "",
+    email: "",
+    role: "",
+    skills: "",
+  });
 
   const acceptedTypes = [
     "application/pdf",
     "application/msword",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   ];
+
+  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -43,7 +57,6 @@ const FileUploadZone = ({ onFileUpload }: FileUploadZoneProps) => {
           clearInterval(interval);
           setIsUploading(false);
           setIsComplete(true);
-          onFileUpload(file);
           return 100;
         }
         return prev + Math.random() * 15;
@@ -70,6 +83,8 @@ const FileUploadZone = ({ onFileUpload }: FileUploadZoneProps) => {
     }
   }, []);
 
+  const isFormValid = formData.name && formData.email && formData.role && formData.skills;
+
   const sendToWebhook = async () => {
     if (!webhookUrl) {
       toast.error("Please enter a webhook URL");
@@ -78,6 +93,11 @@ const FileUploadZone = ({ onFileUpload }: FileUploadZoneProps) => {
 
     if (!uploadedFile) {
       toast.error("Please upload a file first");
+      return;
+    }
+
+    if (!isFormValid) {
+      toast.error("Please fill in all form fields");
       return;
     }
 
@@ -104,26 +124,31 @@ const FileUploadZone = ({ onFileUpload }: FileUploadZoneProps) => {
         },
         mode: "no-cors",
         body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          role: formData.role,
+          skills: formData.skills,
+          resume: base64Content,
           fileName: uploadedFile.name,
           fileType: uploadedFile.type,
           fileSize: uploadedFile.size,
-          fileContent: base64Content,
           timestamp: new Date().toISOString(),
-          triggered_from: window.location.origin,
         }),
       });
 
       // Since we're using no-cors, we won't get a proper response
       toast.success("Request sent to webhook!", {
-        description: "Check your webhook's history to confirm it was received.",
+        description: "Check your n8n workflow to see the ATS score results.",
       });
 
       setWebhookResponse(`
         <div style="padding: 20px; text-align: center;">
-          <h3 style="color: #10b981;">✓ Webhook Triggered Successfully</h3>
-          <p>File: ${uploadedFile.name}</p>
-          <p>Size: ${formatFileSize(uploadedFile.size)}</p>
-          <p>Timestamp: ${new Date().toLocaleString()}</p>
+          <h3 style="color: #10b981;">✓ ATS Check Submitted</h3>
+          <p><strong>Name:</strong> ${formData.name}</p>
+          <p><strong>Email:</strong> ${formData.email}</p>
+          <p><strong>Target Role:</strong> ${formData.role}</p>
+          <p><strong>File:</strong> ${uploadedFile.name}</p>
+          <p style="margin-top: 12px; color: #888;">Check your n8n workflow for results</p>
         </div>
       `);
     } catch (error) {
@@ -152,35 +177,101 @@ const FileUploadZone = ({ onFileUpload }: FileUploadZoneProps) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
+  const inputClasses =
+    "w-full px-4 py-3 rounded-xl bg-background/50 border border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 outline-none transition-all text-foreground placeholder:text-muted-foreground";
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, delay: 0.3 }}
-      className="w-full max-w-2xl mx-auto"
+      className="w-full max-w-2xl mx-auto space-y-6"
     >
-      {/* Webhook URL Input */}
+      {/* Form Fields */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="mb-6"
+        className="glass-card rounded-2xl p-6 relative overflow-hidden"
+      >
+        <div className="absolute inset-0 rounded-2xl gradient-border" />
+        <div className="relative z-10 space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground/80">Name</label>
+            <input
+              type="text"
+              name="name"
+              value={formData.name}
+              onChange={handleFormChange}
+              required
+              className={inputClasses}
+              placeholder="Enter your name"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground/80">Email</label>
+            <input
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleFormChange}
+              required
+              className={inputClasses}
+              placeholder="Enter your email"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground/80">Target Role</label>
+            <input
+              type="text"
+              name="role"
+              value={formData.role}
+              onChange={handleFormChange}
+              required
+              className={inputClasses}
+              placeholder="e.g., Software Engineer"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground/80">Skills (comma separated)</label>
+            <input
+              type="text"
+              name="skills"
+              value={formData.skills}
+              onChange={handleFormChange}
+              required
+              className={inputClasses}
+              placeholder="e.g., React, TypeScript, Node.js"
+            />
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Webhook URL Input */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
       >
         <div className="glass-card rounded-xl p-4 relative overflow-hidden">
           <div className="absolute inset-0 rounded-xl gradient-border" />
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 relative z-10">
             <Link className="w-5 h-5 text-primary flex-shrink-0" />
             <input
               type="url"
               value={webhookUrl}
               onChange={(e) => setWebhookUrl(e.target.value)}
-              placeholder="Enter your webhook URL (e.g., n8n, Zapier)"
+              placeholder="Enter your n8n webhook URL"
               className="flex-1 bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground text-sm"
             />
           </div>
         </div>
       </motion.div>
 
+      {/* File Upload Zone */}
       <AnimatePresence mode="wait">
         {!uploadedFile ? (
           <motion.label
@@ -191,7 +282,7 @@ const FileUploadZone = ({ onFileUpload }: FileUploadZoneProps) => {
             onDrop={handleDrop}
             className={`
               relative flex flex-col items-center justify-center
-              min-h-[320px] p-8 rounded-2xl cursor-pointer
+              min-h-[280px] p-8 rounded-2xl cursor-pointer
               glass-card overflow-hidden
               transition-all duration-300
               ${isDragging ? "glow-primary scale-[1.02]" : "hover:border-primary/30"}
@@ -215,6 +306,7 @@ const FileUploadZone = ({ onFileUpload }: FileUploadZoneProps) => {
             <input
               id="file-upload"
               type="file"
+              name="resume"
               accept=".pdf,.doc,.docx"
               onChange={handleFileInput}
               className="hidden"
@@ -247,7 +339,7 @@ const FileUploadZone = ({ onFileUpload }: FileUploadZoneProps) => {
               className="text-xl font-semibold text-foreground mb-2"
               animate={isDragging ? { scale: 1.05 } : { scale: 1 }}
             >
-              {isDragging ? "Drop it like it's hot! 🔥" : "Upload your resume"}
+              {isDragging ? "Drop it like it's hot! 🔥" : "Upload Resume (PDF/DOCX)"}
             </motion.h3>
 
             <p className="text-muted-foreground text-center mb-4">
@@ -301,7 +393,7 @@ const FileUploadZone = ({ onFileUpload }: FileUploadZoneProps) => {
               </>
             )}
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 relative z-10">
               <motion.div
                 initial={{ rotate: -10 }}
                 animate={{ rotate: 0 }}
@@ -344,7 +436,7 @@ const FileUploadZone = ({ onFileUpload }: FileUploadZoneProps) => {
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mt-6"
+                className="mt-6 relative z-10"
               >
                 <div className="flex justify-between text-sm mb-2">
                   <span className="text-muted-foreground">Uploading...</span>
@@ -368,7 +460,7 @@ const FileUploadZone = ({ onFileUpload }: FileUploadZoneProps) => {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
-                className="mt-6"
+                className="mt-6 relative z-10"
               >
                 <p className="text-primary font-medium text-center mb-4">
                   ✨ Resume uploaded successfully!
@@ -377,14 +469,14 @@ const FileUploadZone = ({ onFileUpload }: FileUploadZoneProps) => {
                 {/* Send to Webhook Button */}
                 <motion.button
                   onClick={sendToWebhook}
-                  disabled={isSendingToWebhook || !webhookUrl}
+                  disabled={isSendingToWebhook || !webhookUrl || !isFormValid}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   className={`
                     w-full py-3 px-6 rounded-xl font-medium
                     flex items-center justify-center gap-2
                     transition-all duration-300
-                    ${webhookUrl 
+                    ${webhookUrl && isFormValid
                       ? "bg-gradient-to-r from-primary to-secondary text-background hover:shadow-lg hover:shadow-primary/25" 
                       : "bg-muted text-muted-foreground cursor-not-allowed"}
                   `}
@@ -392,19 +484,21 @@ const FileUploadZone = ({ onFileUpload }: FileUploadZoneProps) => {
                   {isSendingToWebhook ? (
                     <>
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      Sending to Webhook...
+                      Checking ATS Score...
                     </>
                   ) : (
                     <>
                       <Send className="w-5 h-5" />
-                      Send to Webhook
+                      Check ATS Score
                     </>
                   )}
                 </motion.button>
 
-                {!webhookUrl && (
-                  <p className="text-xs text-muted-foreground text-center mt-2">
-                    Enter a webhook URL above to enable sending
+                {(!webhookUrl || !isFormValid) && (
+                  <p className="text-xs text-amber-500 text-center mt-2">
+                    {!isFormValid 
+                      ? "Please fill in all form fields above" 
+                      : "Enter a webhook URL above to enable sending"}
                   </p>
                 )}
 
@@ -423,7 +517,7 @@ const FileUploadZone = ({ onFileUpload }: FileUploadZoneProps) => {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
-                className="mt-6"
+                className="mt-6 relative z-10"
               >
                 <div 
                   className="rounded-xl bg-muted/50 p-4 overflow-auto max-h-64"
