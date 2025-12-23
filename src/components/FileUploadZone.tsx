@@ -1,6 +1,18 @@
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Upload, FileText, CheckCircle2, X, Sparkles, Send, Loader2 } from "lucide-react";
+import { Upload, FileText, CheckCircle2, X, Sparkles, Send, Loader2, Target, TrendingUp, AlertCircle } from "lucide-react";
+
+interface ATSResult {
+  score?: number;
+  ats_score?: number;
+  match_percentage?: number;
+  feedback?: string;
+  suggestions?: string[];
+  missing_keywords?: string[];
+  matched_keywords?: string[];
+  summary?: string;
+  [key: string]: unknown;
+}
 import { toast } from "sonner";
 
 interface FormData {
@@ -18,7 +30,7 @@ const FileUploadZone = () => {
   const [isComplete, setIsComplete] = useState(false);
   const [webhookUrl] = useState("https://yeswanthvuddagiri.app.n8n.cloud/webhook-test/ats-resume");
   const [isSendingToWebhook, setIsSendingToWebhook] = useState(false);
-  const [webhookResponse, setWebhookResponse] = useState<string | null>(null);
+  const [atsResult, setAtsResult] = useState<ATSResult | null>(null);
   const [formData, setFormData] = useState<FormData>({
     name: "",
     email: "",
@@ -85,55 +97,63 @@ const FileUploadZone = () => {
 
   const isFormValid = formData.name && formData.email && formData.role && formData.skills;
 
- const sendToWebhook = async () => {
-  if (!uploadedFile) {
-    toast.error("Please upload a file first");
-    return;
-  }
+  const sendToWebhook = async () => {
+    if (!uploadedFile) {
+      toast.error("Please upload a file first");
+      return;
+    }
 
-  if (!isFormValid) {
-    toast.error("Please fill in all form fields");
-    return;
-  }
+    if (!isFormValid) {
+      toast.error("Please fill in all form fields");
+      return;
+    }
 
-  setIsSendingToWebhook(true);
-  setWebhookResponse(null);
+    setIsSendingToWebhook(true);
+    setAtsResult(null);
 
-  try {
-    const formDataPayload = new FormData();
+    try {
+      const formDataPayload = new FormData();
+      formDataPayload.append("name", formData.name);
+      formDataPayload.append("email", formData.email);
+      formDataPayload.append("role", formData.role);
+      formDataPayload.append("skills", formData.skills);
+      formDataPayload.append("resume", uploadedFile);
 
-    // text fields
-    formDataPayload.append("name", formData.name);
-    formDataPayload.append("email", formData.email);
-    formDataPayload.append("role", formData.role);
-    formDataPayload.append("skills", formData.skills);
+      const response = await fetch(webhookUrl, {
+        method: "POST",
+        body: formDataPayload,
+      });
 
-    // 🔥 IMPORTANT: real file, not base64
-    formDataPayload.append("resume", uploadedFile);
+      const data = await response.json();
+      setAtsResult(data);
+      toast.success("ATS analysis complete!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to get ATS results");
+    } finally {
+      setIsSendingToWebhook(false);
+    }
+  };
 
-    await fetch(webhookUrl, {
-      method: "POST",
-      body: formDataPayload, // ❌ no headers, ❌ no no-cors
-    });
+  const resetUpload = () => {
+    setUploadedFile(null);
+    setUploadProgress(0);
+    setIsUploading(false);
+    setIsComplete(false);
+    setAtsResult(null);
+  };
 
-    toast.success("Resume submitted for ATS check!");
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return "text-green-500";
+    if (score >= 60) return "text-yellow-500";
+    return "text-red-500";
+  };
 
-    setWebhookResponse(`
-      <div style="padding: 20px; text-align: center;">
-        <h3 style="color: #10b981;">✓ Submitted Successfully</h3>
-        <p><strong>Name:</strong> ${formData.name}</p>
-        <p><strong>Email:</strong> ${formData.email}</p>
-        <p><strong>Role:</strong> ${formData.role}</p>
-        <p><strong>File:</strong> ${uploadedFile.name}</p>
-      </div>
-    `);
-  } catch (err) {
-    console.error(err);
-    toast.error("Failed to submit resume");
-  } finally {
-    setIsSendingToWebhook(false);
-  }
-};
+  const getScoreBg = (score: number) => {
+    if (score >= 80) return "from-green-500/20 to-green-500/5";
+    if (score >= 60) return "from-yellow-500/20 to-yellow-500/5";
+    return "from-red-500/20 to-red-500/5";
+  };
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return "0 Bytes";
@@ -315,7 +335,7 @@ const FileUploadZone = () => {
             <div className="absolute inset-0 rounded-2xl gradient-border" />
 
             {/* Success particles */}
-            {isComplete && !webhookResponse && (
+            {isComplete && !atsResult && (
               <>
                 {[...Array(12)].map((_, i) => (
                   <motion.div
@@ -401,7 +421,7 @@ const FileUploadZone = () => {
               </motion.div>
             )}
 
-            {isComplete && !webhookResponse && (
+            {isComplete && !atsResult && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -412,7 +432,6 @@ const FileUploadZone = () => {
                   ✨ Resume uploaded successfully!
                 </p>
                 
-                {/* Send to Webhook Button */}
                 <motion.button
                   onClick={sendToWebhook}
                   disabled={isSendingToWebhook || !webhookUrl || !isFormValid}
@@ -440,11 +459,9 @@ const FileUploadZone = () => {
                   )}
                 </motion.button>
 
-                {(!webhookUrl || !isFormValid) && (
+                {!isFormValid && (
                   <p className="text-xs text-amber-500 text-center mt-2">
-                    {!isFormValid 
-                      ? "Please fill in all form fields above" 
-                      : "Enter a webhook URL above to enable sending"}
+                    Please fill in all form fields above
                   </p>
                 )}
 
@@ -457,23 +474,114 @@ const FileUploadZone = () => {
               </motion.div>
             )}
 
-            {/* Webhook Response Display */}
-            {webhookResponse && (
+            {/* ATS Results Display */}
+            {atsResult && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
-                className="mt-6 relative z-10"
+                className="mt-6 relative z-10 space-y-4"
               >
-                <div 
-                  className="rounded-xl bg-muted/50 p-4 overflow-auto max-h-64"
-                  dangerouslySetInnerHTML={{ __html: webhookResponse }}
-                />
+                {/* Score Display */}
+                {(atsResult.score !== undefined || atsResult.ats_score !== undefined || atsResult.match_percentage !== undefined) && (
+                  <motion.div
+                    initial={{ scale: 0.9 }}
+                    animate={{ scale: 1 }}
+                    className={`rounded-xl bg-gradient-to-br ${getScoreBg(atsResult.score ?? atsResult.ats_score ?? atsResult.match_percentage ?? 0)} p-6 text-center`}
+                  >
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                      <Target className="w-5 h-5 text-primary" />
+                      <span className="text-sm font-medium text-muted-foreground">ATS Score</span>
+                    </div>
+                    <div className={`text-5xl font-bold ${getScoreColor(atsResult.score ?? atsResult.ats_score ?? atsResult.match_percentage ?? 0)}`}>
+                      {atsResult.score ?? atsResult.ats_score ?? atsResult.match_percentage}%
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Summary/Feedback */}
+                {(atsResult.summary || atsResult.feedback) && (
+                  <div className="rounded-xl bg-muted/50 p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <TrendingUp className="w-4 h-4 text-primary" />
+                      <span className="text-sm font-medium text-foreground">Analysis</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {atsResult.summary || atsResult.feedback}
+                    </p>
+                  </div>
+                )}
+
+                {/* Matched Keywords */}
+                {atsResult.matched_keywords && atsResult.matched_keywords.length > 0 && (
+                  <div className="rounded-xl bg-green-500/10 p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CheckCircle2 className="w-4 h-4 text-green-500" />
+                      <span className="text-sm font-medium text-green-500">Matched Keywords</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {atsResult.matched_keywords.map((keyword, i) => (
+                        <span key={i} className="px-2 py-1 rounded-full text-xs bg-green-500/20 text-green-400">
+                          {keyword}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Missing Keywords */}
+                {atsResult.missing_keywords && atsResult.missing_keywords.length > 0 && (
+                  <div className="rounded-xl bg-red-500/10 p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <AlertCircle className="w-4 h-4 text-red-500" />
+                      <span className="text-sm font-medium text-red-500">Missing Keywords</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {atsResult.missing_keywords.map((keyword, i) => (
+                        <span key={i} className="px-2 py-1 rounded-full text-xs bg-red-500/20 text-red-400">
+                          {keyword}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Suggestions */}
+                {atsResult.suggestions && atsResult.suggestions.length > 0 && (
+                  <div className="rounded-xl bg-muted/50 p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Sparkles className="w-4 h-4 text-primary" />
+                      <span className="text-sm font-medium text-foreground">Suggestions</span>
+                    </div>
+                    <ul className="text-sm text-muted-foreground space-y-1">
+                      {atsResult.suggestions.map((suggestion, i) => (
+                        <li key={i} className="flex items-start gap-2">
+                          <span className="text-primary">•</span>
+                          {suggestion}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Raw JSON fallback for unknown response structure */}
+                {!atsResult.score && !atsResult.ats_score && !atsResult.match_percentage && !atsResult.summary && !atsResult.feedback && (
+                  <div className="rounded-xl bg-muted/50 p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <FileText className="w-4 h-4 text-primary" />
+                      <span className="text-sm font-medium text-foreground">Response</span>
+                    </div>
+                    <pre className="text-xs text-muted-foreground overflow-auto max-h-48 whitespace-pre-wrap">
+                      {JSON.stringify(atsResult, null, 2)}
+                    </pre>
+                  </div>
+                )}
+
                 <button
                   onClick={resetUpload}
                   className="w-full mt-4 text-sm text-muted-foreground hover:text-foreground transition-colors underline underline-offset-4"
                 >
-                  Upload another file
+                  Upload another resume
                 </button>
               </motion.div>
             )}
