@@ -3,77 +3,36 @@ import { motion } from "framer-motion";
 const FloatingOrbs = () => {
   return (
     <div className="fixed inset-0 overflow-hidden pointer-events-none">
-      {/* Primary orb */}
       <motion.div
-        className="absolute w-96 h-96 rounded-full bg-gradient-to-br from-primary/30 to-primary/5 blur-3xl"
-        animate={{
-          x: [0, 100, 0],
-          y: [0, -50, 0],
-          scale: [1, 1.2, 1],
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 1.5 }}
+        className="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full animate-float"
+        style={{
+          background: "radial-gradient(circle, hsl(var(--primary) / 0.12) 0%, transparent 70%)",
+          filter: "blur(60px)",
         }}
-        transition={{
-          duration: 8,
-          repeat: Infinity,
-          ease: "easeInOut",
-        }}
-        style={{ top: "10%", left: "10%" }}
       />
-      
-      {/* Secondary orb */}
       <motion.div
-        className="absolute w-80 h-80 rounded-full bg-gradient-to-br from-secondary/25 to-secondary/5 blur-3xl"
-        animate={{
-          x: [0, -80, 0],
-          y: [0, 60, 0],
-          scale: [1, 1.1, 1],
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 1.5, delay: 0.3 }}
+        className="absolute -bottom-40 -left-40 w-[500px] h-[500px] rounded-full animate-float-delayed"
+        style={{
+          background: "radial-gradient(circle, hsl(var(--secondary) / 0.1) 0%, transparent 70%)",
+          filter: "blur(50px)",
         }}
-        transition={{
-          duration: 10,
-          repeat: Infinity,
-          ease: "easeInOut",
-          delay: 1,
-        }}
-        style={{ top: "50%", right: "10%" }}
       />
-      
-      {/* Accent orb */}
       <motion.div
-        className="absolute w-64 h-64 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 blur-3xl"
-        animate={{
-          x: [0, 50, 0],
-          y: [0, -30, 0],
-          scale: [1, 1.15, 1],
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 2, delay: 0.2 }}
+        className="absolute -top-20 left-1/2 -translate-x-1/2 w-[800px] h-[400px] rounded-full"
+        style={{
+          background: "radial-gradient(ellipse, hsl(var(--primary) / 0.08) 0%, transparent 60%)",
+          filter: "blur(80px)",
         }}
-        transition={{
-          duration: 12,
-          repeat: Infinity,
-          ease: "easeInOut",
-          delay: 2,
-        }}
-        style={{ bottom: "10%", left: "30%" }}
       />
-
-      {/* Small floating particles */}
-      {[...Array(6)].map((_, i) => (
-        <motion.div
-          key={i}
-          className="absolute w-2 h-2 rounded-full bg-primary/60"
-          animate={{
-            y: [0, -100, 0],
-            opacity: [0.3, 0.8, 0.3],
-          }}
-          transition={{
-            duration: 4 + i * 0.5,
-            repeat: Infinity,
-            ease: "easeInOut",
-            delay: i * 0.8,
-          }}
-          style={{
-            left: `${15 + i * 15}%`,
-            top: `${60 + (i % 3) * 10}%`,
-          }}
-        />
-      ))}
     </div>
   );
 };
